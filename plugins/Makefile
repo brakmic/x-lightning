@@ -14,7 +14,7 @@ PLUGIN_TOPOLOGY_OBJS := $(PLUGIN_TOPOLOGY_SRC:.c=.o)
 PLUGIN_TXPREPARE_SRC := plugins/txprepare.c
 PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:.c=.o)
 
-PLUGIN_BCLI_SRC := plugins/bcli.c
+PLUGIN_BCLI_SRC := plugins/docli.c
 PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
 
 PLUGIN_COMMANDO_SRC := plugins/commando.c
