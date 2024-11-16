@@ -48,10 +48,7 @@ static void *tal_reallocfn(void *ptr, size_t size)
 	return ptr;
 }
 
-static void tal_freefn(void *ptr)
-{
-	tal_free(ptr);
-}
+static void tal_freefn(void *ptr) { tal_free(ptr); }
 
 static struct configvar **gather_file_configvars(const tal_t *ctx,
 						 enum configvar_src src,
@@ -84,22 +81,22 @@ static struct configvar **gather_file_configvars(const tal_t *ctx,
 			struct configvar **sub;
 
 			if (include_depth > 100)
-				errx(1, "Include loop with %s and %s", filename, included);
+				errx(1, "Include loop with %s and %s", filename,
+				     included);
 
 			/* If relative, it's relative to current config file */
-			sub = gather_file_configvars(NULL,
-						     src,
-						     path_join(tmpctx,
-							       take(path_dirname(NULL, filename)),
-							       included),
-						     true,
-						     include_depth + 1);
+			sub = gather_file_configvars(
+			    NULL, src,
+			    path_join(tmpctx,
+				      take(path_dirname(NULL, filename)),
+				      included),
+			    true, include_depth + 1);
 			cvs = configvar_join(ctx, take(cvs), take(sub));
 			continue;
 		}
 
-		tal_arr_expand(&cvs,
-			       configvar_new(cvs, src, filename, i+1, lines[i]));
+		tal_arr_expand(
+		    &cvs, configvar_new(cvs, src, filename, i + 1, lines[i]));
 	}
 	return cvs;
 }
@@ -165,8 +162,8 @@ static char *opt_set_lightning_dir(const char *arg, char **p)
 	if (!current_cv)
 		return NULL;
 
-	if (current_cv->src == CONFIGVAR_CMDLINE
-	    || current_cv->src == CONFIGVAR_EXPLICIT_CONF)
+	if (current_cv->src == CONFIGVAR_CMDLINE ||
+	    current_cv->src == CONFIGVAR_EXPLICIT_CONF)
 		return opt_set_abspath(arg, p);
 	return "not permitted in implicit configuration files";
 }
@@ -177,10 +174,8 @@ void setup_option_allocators(void)
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 }
 
-static void parse_configvars(struct configvar **cvs,
-			     bool early,
-			     bool full_knowledge,
-			     bool developer)
+static void parse_configvars(struct configvar **cvs, bool early,
+			     bool full_knowledge, bool developer)
 {
 	for (size_t i = 0; i < tal_count(cvs); i++) {
 		const char *problem;
@@ -192,26 +187,24 @@ static void parse_configvars(struct configvar **cvs,
 			should_know = true;
 
 		current_cv = cvs[i];
-		problem = configvar_parse(cvs[i],
-					  early,
-					  should_know,
-					  developer);
+		problem =
+		    configvar_parse(cvs[i], early, should_know, developer);
 		current_cv = NULL;
 		if (!problem)
 			continue;
 
 		if (cvs[i]->file) {
 			errx(opt_exitcode, "Config file %s line %u: %s: %s",
-			     cvs[i]->file, cvs[i]->linenum,
-			     cvs[i]->configline, problem);
+			     cvs[i]->file, cvs[i]->linenum, cvs[i]->configline,
+			     problem);
 		} else {
-			errx(opt_exitcode, "--%s: %s", cvs[i]->configline, problem);
+			errx(opt_exitcode, "--%s: %s", cvs[i]->configline,
+			     problem);
 		}
 	}
 }
 
-static void finished_arg(int *argc, char **argv, size_t *idx,
-			 bool remove_args)
+static void finished_arg(int *argc, char **argv, size_t *idx, bool remove_args)
 {
 	if (!remove_args) {
 		(*idx)++;
@@ -222,9 +215,8 @@ static void finished_arg(int *argc, char **argv, size_t *idx,
 }
 
 /* Now all options are known, we can turn cmdline into configvars */
-static struct configvar **gather_cmdline_args(const tal_t *ctx,
-					      int *argc, char **argv,
-					      bool remove_args)
+static struct configvar **gather_cmdline_args(const tal_t *ctx, int *argc,
+					      char **argv, bool remove_args)
 {
 	struct configvar **cvs = tal_arr(ctx, struct configvar *, 0);
 
@@ -260,10 +252,10 @@ static struct configvar **gather_cmdline_args(const tal_t *ctx,
 			extra_arg = (ot->type & OPT_HASARG) && !optarg;
 		} else {
 			/* Unknown (yet!).  Guess if next arg is for this! */
-			extra_arg = ((src == CONFIGVAR_CMDLINE_SHORT
-				      || !strchr(arg, '='))
-				     && argv[i+1]
-				     && !strstarts(argv[i+1], "-"));
+			extra_arg =
+			    ((src == CONFIGVAR_CMDLINE_SHORT ||
+			      !strchr(arg, '=')) &&
+			     argv[i + 1] && !strstarts(argv[i + 1], "-"));
 		}
 		finished_arg(argc, argv, &i, remove_args);
 		/* We turn `--foo bar` into `--foo=bar` here */
@@ -273,38 +265,29 @@ static struct configvar **gather_cmdline_args(const tal_t *ctx,
 		} else {
 			configline = arg;
 		}
-		tal_arr_expand(&cvs, configvar_new(cvs, src,
-						   NULL, 0, configline));
+		tal_arr_expand(&cvs,
+			       configvar_new(cvs, src, NULL, 0, configline));
 	}
 	assert(argv[*argc] == NULL);
 	return cvs;
 }
 
-void minimal_config_opts(const tal_t *ctx,
-			 int argc, char *argv[],
-			 char **config_filename,
-			 char **basedir,
-			 char **config_netdir,
-			 char **rpc_filename)
+void minimal_config_opts(const tal_t *ctx, int argc, char *argv[],
+			 char **config_filename, char **basedir,
+			 char **config_netdir, char **rpc_filename)
 {
-	initial_config_opts(tmpctx, &argc, argv, false,
-			    config_filename,
-			    basedir,
-			    config_netdir,
-			    rpc_filename);
+	initial_config_opts(tmpctx, &argc, argv, false, config_filename,
+			    basedir, config_netdir, rpc_filename);
 	tal_steal(ctx, *config_filename);
 	tal_steal(ctx, *basedir);
 	tal_steal(ctx, *config_netdir);
 	tal_steal(ctx, *rpc_filename);
 }
 
-struct configvar **initial_config_opts(const tal_t *ctx,
-				       int *argc, char *argv[],
-				       bool remove_args,
-				       char **config_filename,
-				       char **config_basedir,
-				       char **config_netdir,
-				       char **rpc_filename)
+struct configvar **
+initial_config_opts(const tal_t *ctx, int *argc, char *argv[], bool remove_args,
+		    char **config_filename, char **config_basedir,
+		    char **config_netdir, char **rpc_filename)
 {
 	struct configvar **cmdline_cvs, **config_cvs, **cvs;
 
@@ -318,33 +301,27 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 
 	/* First, they could specify a config, or base dir. */
 	*config_filename = NULL;
-	opt_register_early_arg("--conf=<file>",
-			       opt_set_config_filename,
+	opt_register_early_arg("--conf=<file>", opt_set_config_filename,
 			       /* Doesn't show if it's NULL! */
-			       opt_show_charp,
-			       config_filename,
+			       opt_show_charp, config_filename,
 			       "Specify configuration file");
 	*config_basedir = default_base_configdir(ctx);
-	opt_register_early_arg("--lightning-dir=<dir>",
-			       opt_set_lightning_dir, opt_show_charp,
-			       config_basedir,
-			       "Set base directory: network-specific subdirectory is under here");
-	opt_register_early_arg("--network", opt_set_network, opt_show_network,
-			       NULL,
-			       "Select the network parameters (bitcoin, testnet,"
-			       " signet, regtest, litecoin or litecoin-testnet)");
-	opt_register_early_noarg("--testnet",
-				 opt_set_specific_network, "testnet",
-				 "Alias for --network=testnet");
-	opt_register_early_noarg("--signet",
-				 opt_set_specific_network, "signet",
-				 "Alias for --network=signet");
-	opt_register_early_noarg("--mainnet",
-				 opt_set_specific_network, "bitcoin",
-				 "Alias for --network=bitcoin");
-	opt_register_early_noarg("--regtest",
-				 opt_set_specific_network, "regtest",
-				 "Alias for --network=regtest");
+	opt_register_early_arg(
+	    "--lightning-dir=<dir>", opt_set_lightning_dir, opt_show_charp,
+	    config_basedir,
+	    "Set base directory: network-specific subdirectory is under here");
+	opt_register_early_arg(
+	    "--network", opt_set_network, opt_show_network, NULL,
+	    "Select the network parameters (deeponion, testnet,"
+	    " regtest) ");
+	opt_register_early_noarg("--testnet", opt_set_specific_network,
+				 "testnet", "Alias for --network=testnet");
+	// opt_register_early_noarg("--signet", opt_set_specific_network,
+	// "signet", 			 "Alias for --network=signet");
+	opt_register_early_noarg("--mainnet", opt_set_specific_network,
+				 "deeponion", "Alias for --network=deeponion");
+	opt_register_early_noarg("--regtest", opt_set_specific_network,
+				 "regtest", "Alias for --network=regtest");
 	/* Handle --version (and exit) here too */
 	opt_register_version();
 
@@ -359,28 +336,27 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 
 	/* Base default or direct config can set network */
 	if (*config_filename) {
-		config_cvs = gather_file_configvars(NULL,
-						    CONFIGVAR_EXPLICIT_CONF,
-						    *config_filename, true, 0);
+		config_cvs = gather_file_configvars(
+		    NULL, CONFIGVAR_EXPLICIT_CONF, *config_filename, true, 0);
 	} else {
 		struct configvar **base_cvs, **net_cvs;
-		char *dir = path_join(tmpctx, take(path_cwd(NULL)), *config_basedir);
+		char *dir =
+		    path_join(tmpctx, take(path_cwd(NULL)), *config_basedir);
 		/* Optional: .lightning/config */
-		base_cvs = gather_file_configvars(tmpctx,
-						  CONFIGVAR_BASE_CONF,
-						  path_join(tmpctx, dir, "config"),
-						  false, 0);
+		base_cvs = gather_file_configvars(
+		    tmpctx, CONFIGVAR_BASE_CONF,
+		    path_join(tmpctx, dir, "config"), false, 0);
 		/* This might set network! */
 		parse_configvars(configvar_join(tmpctx, base_cvs, cmdline_cvs),
 				 true, false, false);
 
 		/* Now, we can get network config */
 		dir = path_join(tmpctx, dir, chainparams->network_name);
-		net_cvs = gather_file_configvars(tmpctx,
-						 CONFIGVAR_NETWORK_CONF,
-						 path_join(tmpctx, dir, "config"),
-						 false, 0);
-		config_cvs = configvar_join(NULL, take(base_cvs), take(net_cvs));
+		net_cvs = gather_file_configvars(
+		    tmpctx, CONFIGVAR_NETWORK_CONF,
+		    path_join(tmpctx, dir, "config"), false, 0);
+		config_cvs =
+		    configvar_join(NULL, take(base_cvs), take(net_cvs));
 	}
 	cvs = configvar_join(ctx, take(config_cvs), cmdline_cvs);
 
@@ -388,11 +364,12 @@ struct configvar **initial_config_opts(const tal_t *ctx,
 	 * early vars! */
 	parse_configvars_early(cvs, false);
 
-	*config_netdir
-		= path_join(NULL, *config_basedir, chainparams->network_name);
+	*config_netdir =
+	    path_join(NULL, *config_basedir, chainparams->network_name);
 
 	/* Make sure it's absolute */
-	*config_netdir = path_join(ctx, take(path_cwd(NULL)), take(*config_netdir));
+	*config_netdir =
+	    path_join(ctx, take(path_cwd(NULL)), take(*config_netdir));
 	return cvs;
 }
 
@@ -401,8 +378,7 @@ void parse_configvars_early(struct configvar **cvs, bool developer)
 	parse_configvars(cvs, true, false, developer);
 }
 
-void parse_configvars_final(struct configvar **cvs,
-			    bool full_knowledge,
+void parse_configvars_final(struct configvar **cvs, bool full_knowledge,
 			    bool developer)
 {
 	parse_configvars(cvs, false, full_knowledge, developer);
