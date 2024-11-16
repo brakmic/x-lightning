@@ -31,22 +31,17 @@ static bool explicit_network = false;
 static int timeout_after = -1;
 static u8 *features;
 
-static struct io_plan *simple_write(struct io_conn *conn,
-				    const void *data, size_t len,
-				    struct io_plan *(*next)(struct io_conn *, void *),
-				    void *arg);
+static struct io_plan *
+simple_write(struct io_conn *conn, const void *data, size_t len,
+	     struct io_plan *(*next)(struct io_conn *, void *), void *arg);
 
-static struct io_plan *simple_read(struct io_conn *conn,
-				   void *data, size_t len,
-				   struct io_plan *(*next)(struct io_conn *, void *),
-				   void *next_arg);
+static struct io_plan *
+simple_read(struct io_conn *conn, void *data, size_t len,
+	    struct io_plan *(*next)(struct io_conn *, void *), void *next_arg);
 
-static struct io_plan *simple_close(struct io_conn *conn)
-{
-	return NULL;
-}
+static struct io_plan *simple_close(struct io_conn *conn) { return NULL; }
 
- #include "../connectd/handshake.c"
+#include "../connectd/handshake.c"
 
 /* This makes the handshake prototypes work. */
 struct io_conn {
@@ -58,14 +53,12 @@ static bool no_gossip = false, all_gossip = false;
 static unsigned long max_messages = -1UL;
 
 /* Empty stubs to make us compile */
-void status_peer_io(enum log_level iodir,
-		    const struct node_id *node_id,
+void status_peer_io(enum log_level iodir, const struct node_id *node_id,
 		    const u8 *p)
 {
 }
 
-void status_fmt(enum log_level level,
-		const struct node_id *node_id,
+void status_fmt(enum log_level level, const struct node_id *node_id,
 		const char *fmt, ...)
 {
 }
@@ -96,32 +89,28 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 }
 
 /* We don't want to discard *any* messages. */
-bool is_unknown_msg_discardable(const u8 *cursor)
-{
-	return false;
-}
+bool is_unknown_msg_discardable(const u8 *cursor) { return false; }
 
-static struct io_plan *simple_write(struct io_conn *conn,
-				    const void *data, size_t len,
-				    struct io_plan *(*next)(struct io_conn *, void *),
-				    void *arg)
+static struct io_plan *
+simple_write(struct io_conn *conn, const void *data, size_t len,
+	     struct io_plan *(*next)(struct io_conn *, void *), void *arg)
 {
 	if (!write_all(conn->fd, data, len))
 		err(1, "Writing data");
 	return next(conn, arg);
 }
 
-static struct io_plan *simple_read(struct io_conn *conn,
-				   void *data, size_t len,
-				   struct io_plan *(*next)(struct io_conn *, void *),
-				   void *next_arg)
+static struct io_plan *
+simple_read(struct io_conn *conn, void *data, size_t len,
+	    struct io_plan *(*next)(struct io_conn *, void *), void *next_arg)
 {
 	if (!read_all(conn->fd, data, len))
 		err(1, "Reading data");
 	return next(conn, next_arg);
 }
 
-static void sync_crypto_write(int peer_fd, struct crypto_state *cs, const void *msg TAKES)
+static void sync_crypto_write(int peer_fd, struct crypto_state *cs,
+			      const void *msg TAKES)
 {
 	u8 *enc;
 
@@ -132,7 +121,8 @@ static void sync_crypto_write(int peer_fd, struct crypto_state *cs, const void *
 	tal_free(enc);
 }
 
-static u8 *sync_crypto_read(const tal_t *ctx, int peer_fd, struct crypto_state *cs)
+static u8 *sync_crypto_read(const tal_t *ctx, int peer_fd,
+			    struct crypto_state *cs)
 {
 	u8 hdr[18], *enc, *dec;
 	u16 len;
@@ -143,8 +133,7 @@ static u8 *sync_crypto_read(const tal_t *ctx, int peer_fd, struct crypto_state *
 	}
 
 	if (!cryptomsg_decrypt_header(cs, hdr, &len)) {
-		status_debug("Failed hdr decrypt with rn=%"PRIu64,
-			     cs->rn-1);
+		status_debug("Failed hdr decrypt with rn=%" PRIu64, cs->rn - 1);
 		exit(1);
 	}
 
@@ -164,19 +153,16 @@ static u8 *sync_crypto_read(const tal_t *ctx, int peer_fd, struct crypto_state *
 	return dec;
 }
 
-static struct io_plan *handshake_success(struct io_conn *conn,
-					 const struct pubkey *them,
-					 const struct wireaddr_internal *addr,
-					 struct crypto_state *cs,
-					 struct oneshot *timer,
-					 enum is_websocket is_websocket,
-					 char **args)
+static struct io_plan *
+handshake_success(struct io_conn *conn, const struct pubkey *them,
+		  const struct wireaddr_internal *addr, struct crypto_state *cs,
+		  struct oneshot *timer, enum is_websocket is_websocket,
+		  char **args)
 {
 	int peer_fd = io_conn_fd(conn);
 	struct pollfd pollfd[2];
 
-	set_feature_bit(&features,
-			OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES));
+	set_feature_bit(&features, OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES));
 
 	if (!no_init) {
 		u8 *msg;
@@ -193,11 +179,12 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		tal_free(sync_crypto_read(NULL, peer_fd, cs));
 		tal_free(tlvs);
 
-		msg = towire_gossip_timestamp_filter(NULL,
-						     &chainparams->genesis_blockhash,
-						     all_gossip ? 0
-						     : no_gossip ? 0xFFFFFFFF : time_now().ts.tv_sec,
-						     0xFFFFFFFF);
+		msg = towire_gossip_timestamp_filter(
+		    NULL, &chainparams->genesis_blockhash,
+		    all_gossip	? 0
+		    : no_gossip ? 0xFFFFFFFF
+				: time_now().ts.tv_sec,
+		    0xFFFFFFFF);
 		sync_crypto_write(peer_fd, cs, take(msg));
 	}
 
@@ -232,7 +219,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 			else {
 				msg = tal_arr(NULL, u8, be16_to_cpu(belen));
 
-				if (!read_all(STDIN_FILENO, msg, tal_bytelen(msg)))
+				if (!read_all(STDIN_FILENO, msg,
+					      tal_bytelen(msg)))
 					err(1, "Only read partial message");
 				sync_crypto_write(peer_fd, cs, take(msg));
 			}
@@ -244,8 +232,10 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				printf("%s\n", tal_hex(msg, msg));
 			} else {
 				belen = cpu_to_be16(tal_bytelen(msg));
-				if (!write_all(STDOUT_FILENO, &belen, sizeof(belen))
-				    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
+				if (!write_all(STDOUT_FILENO, &belen,
+					       sizeof(belen)) ||
+				    !write_all(STDOUT_FILENO, msg,
+					       tal_bytelen(msg)))
 					err(1, "Writing out msg");
 			}
 			tal_free(msg);
@@ -260,7 +250,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 	if (shutdown(peer_fd, SHUT_WR) != 0)
 		err(1, "failed to shutdown write to peer: %s", strerror(errno));
 
-	while (sync_crypto_read(NULL, peer_fd, cs));
+	while (sync_crypto_read(NULL, peer_fd, cs))
+		;
 	exit(0);
 }
 
@@ -314,24 +305,22 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--no-init", opt_set_bool, &no_init,
 			   "Don't send or swallow init messages.");
 	opt_register_arg("--privkey", opt_set_secret, opt_show_secret,
-			 &notsosecret,
-			 "Secret key to use for our identity");
+			 &notsosecret, "Secret key to use for our identity");
 	opt_register_arg("--timeout-after", opt_set_intval, opt_show_intval,
 			 &timeout_after,
 			 "Exit (success) this many seconds after no msgs rcvd");
 	opt_register_noarg("--hex", opt_set_bool, &hex,
 			   "Print out messages in hex");
-	opt_register_arg("--features=<hex>", opt_set_features, NULL,
-			 &features, "Send these features in init");
-	opt_register_arg("--network", opt_set_network, opt_show_network,
-	                 NULL,
-	                 "Select the network parameters (bitcoin, testnet, signet,"
-	                 " regtest, liquid, liquid-regtest, litecoin or"
-	                 " litecoin-testnet)");
-	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "id@addr[:port] [hex-msg-tosend...]\n"
-			   "Connect to a lightning peer and relay gossip messages from it",
-			   "Print this message.");
+	opt_register_arg("--features=<hex>", opt_set_features, NULL, &features,
+			 "Send these features in init");
+	opt_register_arg("--network", opt_set_network, opt_show_network, NULL,
+			 "Select the network parameters (deeponion, testnet,"
+			 " regtest) ");
+	opt_register_noarg(
+	    "--help|-h", opt_usage_and_exit,
+	    "id@addr[:port] [hex-msg-tosend...]\n"
+	    "Connect to a lightning peer and relay gossip messages from it",
+	    "Print this message.");
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc < 2)
@@ -341,10 +330,11 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Need id@addr");
 
 	if (!pubkey_from_hexstr(argv[1], at - argv[1], &them))
-		opt_usage_exit_fail("Invalid id %.*s",
-				    (int)(at - argv[1]), argv[1]);
+		opt_usage_exit_fail("Invalid id %.*s", (int)(at - argv[1]),
+				    argv[1]);
 
-	err_msg = parse_wireaddr_internal(tmpctx, at+1, chainparams_get_ln_port(chainparams), true, &addr);
+	err_msg = parse_wireaddr_internal(
+	    tmpctx, at + 1, chainparams_get_ln_port(chainparams), true, &addr);
 	if (err_msg)
 		opt_usage_exit_fail("%s '%s'", err_msg, argv[1]);
 
@@ -392,9 +382,9 @@ int main(int argc, char *argv[])
 		errx(1, "Creating pubkey");
 
 	if (connect(conn->fd, ai->ai_addr, ai->ai_addrlen) != 0)
-		err(1, "Connecting to %s", at+1);
+		err(1, "Connecting to %s", at + 1);
 
 	initiator_handshake(conn, &us, &them, &addr, NULL, NORMAL_SOCKET,
-			    handshake_success, argv+2);
+			    handshake_success, argv + 2);
 	exit(0);
 }
